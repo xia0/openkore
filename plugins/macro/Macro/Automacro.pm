@@ -6,10 +6,10 @@ use strict;
 require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(releaseAM lockAM automacroCheck consoleCheckWrapper);
-our @EXPORT = qw(checkLocalTime checkVar checkVarVar checkLoc checkPersonGuild checkLevel checkLevel checkClass
+our @EXPORT = qw(checkLocalTime checkConf checkVar checkVarVar checkLoc checkPersonGuild checkLevel checkLevel checkClass
 	checkPercent checkStatus checkItem checkPerson checkCond checkCast checkGround checkSpellsID
 	checkEquip checkMsg checkMonster checkAggressives checkConsole checkMapChange);
-	
+
 use Misc qw(whenGroundStatus getSpellName getActorName);
 use Utils;
 use Globals;
@@ -22,6 +22,16 @@ use Macro::Utilities qw(between cmpr match getArgs refreshGlobal
 	getStorageAmount callMacro sameParty);
 
 our ($rev) = q$Revision: 6760 $ =~ /(\d+)/;
+
+# check config
+sub checkConf {
+	my ($var, $cond, $val) = getArgs($_[0]);
+
+	if ($cond eq "unset") {return exists $config{$var}?0:1}
+
+	if (exists $config{$var}) {return cmpr($config{$var}, $cond, $val)}
+	else {return $cond eq "!="}
+}
 
 # check for variable #######################################
 sub checkVar {
@@ -43,7 +53,7 @@ sub checkVar {
 sub checkGround {
 	my $arg = $_[0];
 	my $not = ($arg =~ s/^not +//)?1:0;
-	
+
 	if (whenGroundStatus(calcPosition($char), $arg)) {return $not?0:1}
 	return $not?1:0
 }
@@ -115,9 +125,9 @@ sub checkLocalTime {
 sub checkPersonGuild {
 	my ($guild, $trigger, $arg) = @_;
 	return 0 if !defined $guild || !defined $trigger || !defined $arg;
-	
+
 	my $actor = $arg->{player};
-	
+
 	return 0 unless defined $actor->{guild};
 	my $guildName = $actor->{guild}{name};
 	my $dist = $config{clientSight};
@@ -125,9 +135,9 @@ sub checkPersonGuild {
 	my $not = 0;
 	if ($guild =~ /^not\s+/) {$not = 1; $guild =~ s/^not +//g}
 	if ($guild =~ /(^.*),\s*(\d+)\s*$/) {$guild = $1; $dist = $2}
-	
+
 	return 0 unless (distance(calcPosition($char), calcPosition($actor)) <= $dist);
-	
+
 	$varStack{".lastPlayerID"} = undef;
 	$varStack{".lastGuildName"} = undef;
 	$varStack{".lastGuildNameBinID"} = undef;
@@ -150,7 +160,7 @@ sub checkPersonGuild {
         	if (@gld) {$guild = join(' , ', @gld)}
         	else {$guild = ''}
         }
-        
+
 	if (defined $guild && existsInList($guild, $guildName)) {
 		return 0 if $not;
 		$varStack{".lastPlayerID"} = unpack("V1", $actor->{ID});
@@ -210,7 +220,7 @@ sub checkPercent {
 		if ($amount =~ /^\s*(?:\d+|\d+\s*\.{2}\s*\d+)%$/ && $char->{$what."_max"}) {
 			$amount =~ s/%$//;
 			return cmpr(($char->{$what} / $char->{$what."_max"} * 100), $cond, $amount)
-		} 
+		}
 		elsif ($amount =~ /^\s*\$/) {
 			my ($var, $percent) = $amount =~ /^\$([a-zA-Z][a-zA-Z\d]*)(%)?\s*/;
 			return 0 unless defined $var;
@@ -366,7 +376,7 @@ sub checkEquip {
 sub checkCast {
 	my ($cast, $args) = @_;
 	return 0 if $args->{sourceID} eq $accountID;
-	
+
 	$cast = lc($cast);
 	my $party = ($cast =~ s/^party +//)?1:0;
 	my $pos = calcPosition($char);
@@ -434,7 +444,7 @@ sub checkCast {
 			}
 		}
 		else {return 0}
-	} 
+	}
 	else {return 0}
 }
 
@@ -469,7 +479,7 @@ sub checkMsg {
 		chomp($msg);
 	} else {
 		$msg = $tmp
-	}	
+	}
 	$arg->{Msg} =~ s/[\r\n]*$//g;
 	if (match($arg->{Msg},$msg)){
 		$varStack{$var} = $arg->{MsgUser};
@@ -488,7 +498,7 @@ sub checkSpellsID {
 		($list, $cond, $dist) = ($1, $2, $3)
 	}
 	else {$list = $line; $cond = "<="}
-	
+
 	foreach (@spellsID) {
 		my $spell = $spells{$_};
 		my $type = getSpellName($spell->{type});
@@ -628,7 +638,7 @@ sub checkMapChange {
 # checks for eval
 sub checkEval {
 	return if $Settings::lockdown;
-	
+
 	#if ($_[0] =~ /;/) {
 	#	my @eval = split(/\s*;\s*/, $_[0]);
 	#	foreach my $e (@eval) {return 1 if checkEval($e)}
@@ -767,6 +777,7 @@ sub automacroCheck {
 		foreach my $i (@{$automacro{$am}->{aggressives}}){next CHKAM unless checkAggressives($i)}
 		foreach my $i (@{$automacro{$am}->{location}})   {next CHKAM unless checkLoc($i)}
 		foreach my $i (@{$automacro{$am}->{localtime}})  {next CHKAM unless checkLocalTime($i, "")}
+		foreach my $i (@{$automacro{$am}->{conf}})     {next CHKAM unless checkConf($i, "")}
 		foreach my $i (@{$automacro{$am}->{var}})        {next CHKAM unless checkVar($i, "")}
 		foreach my $i (@{$automacro{$am}->{varvar}})     {next CHKAM unless checkVar($i, "varvar")}
 		foreach my $i (@{$automacro{$am}->{base}})       {next CHKAM unless checkLevel($i, "lv")}

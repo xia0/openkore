@@ -51,6 +51,7 @@ our %amMulti = (
 	'monster' => 1,      # check: monster on screen
 	'aggressives' => 1,  # check: aggressives
 	'location' => 1,     # check: player's location
+	'conf' => 1,			   # check: config file
 	'var' => 1,          # check: variable / value
 	'varvar' => 1,       # check: nested variable / value
 	'base' => 1,         # check: base level
